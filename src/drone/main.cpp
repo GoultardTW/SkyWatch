@@ -1,6 +1,6 @@
 #include <hiredis/hiredis.h>
-#include <vector>
 #include <thread>
+#include <vector>
 #include <unistd.h>
 
 #include "drone.cpp"

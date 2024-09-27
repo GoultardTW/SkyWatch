@@ -5,6 +5,7 @@
 #include <string>
 #include <math.h>
 #include <unistd.h>
+#include <vector>
 
 #include "control_center.hpp"
 #include "../con2redis/src/redisfun.cpp"
@@ -17,13 +18,16 @@ int main(int argc, char *argv[]) {
     redisContext *c = connectToRedis("redis", 6379);
 
     // Send number of drones to Drone
-    int nDrones = 5;
+    int nDrones = 4;
     SendStreamMsg(c, "Commands", std::to_string(nDrones).c_str());
+
+    // Da sostituire con i path
+    std::vector<std::string> vec = {"llll", "uuuu", "rrrr", "dddd"};
 
     sleep(10);
     // Send a message for each drone
     for(int i=0; i<nDrones; i++){
-        std::string message = "hello_from_drone_" + std::to_string(i) + "\n";
+        std::string message = vec[i];
         SendStreamMsg(c, "Commands", message.c_str());
     }
 
