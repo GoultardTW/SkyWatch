@@ -1,0 +1,66 @@
+version: "3.9"
+networks:
+  my-network:
+    driver: bridge
+
+services:
+
+  redis:
+    container_name: redis
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    networks:
+        - my-network
+
+  postgres:
+    container_name: postgres
+    image: postgres:alpine
+    ports:
+      - "5432:5432"
+    networks:
+        - my-network
+    volumes:
+      - ./db:/docker-entrypoint-initdb.d
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+   
+  test:
+    container_name: test
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    networks:
+        - my-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+  
+  testdrone:
+    container_name: testdrone
+    build:
+      context: .
+      dockerfile: Dockerfile.drone
+    networks:
+        - my-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+# To Start:
+# docker-compose up --build
+
+# To Restart:
+# docker ps
+# docker stop <container id>
+# docker-compose down -v
+
+# To Remove Redis:
+# sudo systemctl disable redis
