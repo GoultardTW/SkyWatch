@@ -17,6 +17,7 @@ int main(int argc, char *argv[]) {
 
     // Allocation of redis context
     redisContext *c = connectToRedis("redis", 6379);
+    createGroup(c, "Commands", "Group", true);
 
     // Produce paths
     std::vector<std::string> paths;
@@ -27,11 +28,13 @@ int main(int argc, char *argv[]) {
     printf("The number of paths is %d\n", nDrones);
     SendStreamMsg(c, "Commands", std::to_string(nDrones).c_str());
 
-    sleep(10);
     // Send a message for each drone
     for(int i=0; i<nDrones; i++){
         std::string message = paths[i];
-        SendStreamMsg(c, "Commands", message.c_str());
+        std::string stream = "Commands"+std::to_string(i);
+        std::string group = "Group"+std::to_string(i);
+        createGroup(c, stream, group, true);
+        SendStreamMsg(c, stream.c_str(), message.c_str());
     }
 
     redisFree(c);

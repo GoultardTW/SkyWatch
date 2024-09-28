@@ -44,7 +44,7 @@ std::string ReadStreamMsgVal(redisReply *r, long unsigned int streamnum, int msg
 // Returns the message read from a consumer
 std::string ReadGroupMsgVal(redisContext* c, int id, const char* group, const char* stream){
   std::string consumerName = "Drone_" + std::to_string(id);
-  redisReply *rep = (redisReply *)redisCommand(c, "XREADGROUP GROUP %s %s BLOCK 0 NOACK COUNT 0 STREAMS %s >", group, consumerName.c_str(), stream);
+  redisReply *rep = (redisReply *)redisCommand(c, "XREADGROUP GROUP %s %s NOACK COUNT 1 BLOCK 0 STREAMS %s >", group, consumerName.c_str(), stream);
   std::string res = ReadStreamMsgVal(rep, 0, 0, 1);
   freeReplyObject(rep);
   return res;
@@ -52,7 +52,7 @@ std::string ReadGroupMsgVal(redisContext* c, int id, const char* group, const ch
 
 // It send a message inside a Stream
 void SendStreamMsgN(redisContext* c, const char* stream, char** value, int num_fields){
-  std::string xadd = "XADD " + std::string(stream) + " * ";
+  std::string xadd = "XADD " + std::string(stream) + " MKSTREAM * ";
   for (int i=0; i<num_fields; i+=1){
     xadd += std::string(value[i]) + " ";
   }

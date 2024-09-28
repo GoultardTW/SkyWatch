@@ -1,6 +1,8 @@
 #include "con2redis.h"
 #include "local.h"
 #include <hiredis/hiredis.h>
+#include <string>
+#include <iostream>
 
 void print_reply_types()
 {
@@ -35,12 +37,6 @@ void assertReply(redisContext *c, redisReply *r) {
         dbg_abort("NULL redisReply (error: %s)", c->errstr);
 }
 
-// To make a Group
-void makeGroup(redisContext *c, const char *stream, const char *group) {
-    redisReply *r = RedisCommand(c, "XGROUP CREATE %s %s 0 MKSTREAM", stream, group);
-    freeReplyObject(r);
-}
-
 // To establish a redis connection
 redisContext *connectToRedis(const char *hostname, int port) {
     redisContext *c = redisConnect(hostname, port);
@@ -54,4 +50,48 @@ redisContext *connectToRedis(const char *hostname, int port) {
         return NULL;
     }
     return c;
+}
+
+std::string createGroup(redisContext *context, const std::string &stream, const std::string &group, bool mkstream = true) {
+    // Create a group
+    auto *reply = (redisReply *) redisCommand(context, "XGROUP CREATE %s %s $ MKSTREAM", stream.c_str(), group.c_str());
+    if (reply == nullptr) {
+        std::cerr << "createGroup: Error: " << context->errstr << std::endl;
+        return "";
+    }
+    std::string result = reply->str;
+    freeReplyObject(reply);
+    return result;
+}
+
+long destroyGroup(redisContext *context, const std::string &stream, const std::string &group) {
+    // Create a group
+    auto *reply = (redisReply *) redisCommand(context, "XGROUP DESTROY %s %s",
+                                              stream.c_str(), group.c_str());
+    if (reply == nullptr) {
+        // cerr << "deleteGroup: Error: " << context->errstr << endl;
+        return -1;
+    }
+
+    if (reply->type == REDIS_REPLY_ERROR) {
+        //cerr << "deleteGroup: ReplyError: " << reply->str << endl;
+        return -1;
+        //        return "";
+    }
+    long result = reply->integer;
+    freeReplyObject(reply);
+    return result;
+}
+
+long deleteStream(redisContext *context, const std::string &stream) {
+    // Create a group
+    auto *reply = (redisReply *) redisCommand(context, "DEL %s", stream.c_str());
+    if (reply == nullptr) {
+        std::cerr << "deleteStream: Error: " << context->errstr << std::endl;
+        return -1;
+    }
+
+    long result = reply->integer;
+    freeReplyObject(reply);
+    return result;
 }
