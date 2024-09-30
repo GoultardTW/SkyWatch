@@ -19,9 +19,8 @@ int main(int argc, char *argv[]) {
     redisFree(c);
 
     // Generation of threads (one thread produces one drone and works with it)
-    std::vector<std::thread> threads;
     for (int i = 0; i < nDrones; i++) {
-        threads.emplace_back(initDrone, i);
+        threads.emplace_back(initDrone, "");
     }
 
     // Wait for all threads to stop

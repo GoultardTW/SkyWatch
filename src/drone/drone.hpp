@@ -8,17 +8,21 @@
 #include <random>
 #include <thread>
 #include <chrono>
+#include <mutex>
 
 // Definition of drone class
 class Drone {
 
     public:
         // Constructor (id)
-        Drone(int id) : id(id), x(150), y(150), moves_left(MAX_FLIGHT_MOVES){
+        Drone() : id(0), x(150), y(150), moves_left(MAX_FLIGHT_MOVES){
             std::random_device rd;
             std::mt19937 gen(rd());
             std::uniform_int_distribution<> distribution(7200, 10800);
             recharging_time = distribution(gen);
+            std::lock_guard<std::mutex> guard(count_mutex);
+            id = instance_count;
+            ++instance_count;
         }
 
         // It executes a move
@@ -88,6 +92,10 @@ class Drone {
             return this->y;
         }
 
+        int getId(){
+            return this->id;
+        }
+
         void chargeDrone(){
             float temp = (float)moves_left/MAX_FLIGHT_MOVES;
             float missing_charge = 1-temp;
@@ -102,4 +110,8 @@ class Drone {
         int y; // Latitude
         int moves_left; // Seconds of life remaining
         int recharging_time; // Seconds for a complete recharge
+        // Global counter of drones
+        static int instance_count;
+        // Mutex to manage instance_count
+        static std::mutex count_mutex;
 };
