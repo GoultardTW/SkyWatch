@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <math.h>
-#include <thread>
 #include <chrono>
 
 #include "../con2redis/src/redisfun.cpp"
@@ -25,5 +24,8 @@ void initDrone(int id){
         drone.ExecuteMove(msg[m]);
         //std::this_thread::sleep_for(std::chrono::milliseconds(2400));
     }
+    //drone.chargeDrone();
     printf("Il drone #%d si trova nella posizione (%d, %d)\n", id, drone.getX(), drone.getY());
 }
+
+

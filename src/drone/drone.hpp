@@ -5,6 +5,9 @@
 #define DIMENSION 300 // The area is 300x300 blocks
 
 #include <stdio.h>
+#include <random>
+#include <thread>
+#include <chrono>
 
 // Definition of drone class
 class Drone {
@@ -12,6 +15,10 @@ class Drone {
     public:
         // Constructor (id)
         Drone(int id) : id(id), x(150), y(150), moves_left(MAX_FLIGHT_MOVES){
+            std::random_device rd;
+            std::mt19937 gen(rd());
+            std::uniform_int_distribution<> distribution(7200, 10800);
+            recharging_time = distribution(gen);
         }
 
         // It executes a move
@@ -81,10 +88,18 @@ class Drone {
             return this->y;
         }
 
+        void chargeDrone(){
+            float temp = (float)moves_left/MAX_FLIGHT_MOVES;
+            float missing_charge = 1-temp;
+            int time_needed = missing_charge * recharging_time * 1000;
+            std::this_thread::sleep_for(std::chrono::milliseconds(time_needed));
+            recharging_time = MAX_FLIGHT_MOVES;
+        }
+
     private:
         int id; // Unique id
         int x; // Longitude
         int y; // Latitude
         int moves_left; // Seconds of life remaining
-        int recharging_time; // Minutes for a recharge
+        int recharging_time; // Seconds for a complete recharge
 };
