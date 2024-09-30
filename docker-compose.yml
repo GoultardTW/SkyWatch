@@ -57,10 +57,5 @@ services:
 # To Start:
 # docker-compose up --build
 
-# To Restart:
-# docker ps
-# docker stop <container id>
-# docker-compose down -v
-
-# To Remove Redis:
-# sudo systemctl disable redis
+# To Stop:
+# docker-compose down

@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <stdlib.h>
 #include <vector>
 #include <string>
@@ -26,15 +27,29 @@ std::string goToGrid(int* x, int* y, int step){
     int ay = *y;
     int temp = 0;
     while (step > 0){
+        
         int direction = ay % 2;
         temp = (!direction) ? (299 - ax) : ax;
         temp = std::min(temp, step);
 
-        res.append(temp, !direction ? 'r' : 'l');
-        ax += (!direction ? temp : -temp);
-        step -= temp;
+        for (int k=0; k<temp; k++){
+            if(abs(ax-150)+abs(ay-150)==step){
+                res = res + goTo(ax, ay, 150, 150);
+                step = 0;
+                break;
+            }
+            res = res + (!direction ? "r" : "l");
+            ax += (!direction ? 1 : -1);
+            step -= 1;
+        }
+
         if (step > 0) {
             if (ay < 299) {
+                if(abs(ax-150)+abs(ay-150)==step){
+                    res = res + goTo(ax, ay, 150, 150);
+                    step = 0;
+                    break;
+                }
                 res += 'd'; 
                 step -= 1; 
                 ay += 1; 
@@ -42,6 +57,13 @@ std::string goToGrid(int* x, int* y, int step){
                 break;
             }
         }
+    }
+    if(ax < 299 && (ay%2)==0){
+        ax++;
+    }else if (ax > 0 && (ay%2)==1){
+        ax--;
+    }else if (((ax==299) && (ay%2)==0 && (ay<299)) || ((ax==0) && (ay%2)==1 && (ay<299))){
+        ay++;
     }
     *x = ax;
     *y = ay;
