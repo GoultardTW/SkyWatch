@@ -6,8 +6,6 @@
 
 #include <stdio.h>
 #include <random>
-#include <thread>
-#include <chrono>
 #include <mutex>
 
 // Definition of drone class
@@ -18,7 +16,7 @@ class Drone {
         Drone() : id(0), x(150), y(150), moves_left(MAX_FLIGHT_MOVES){
             std::random_device rd;
             std::mt19937 gen(rd());
-            std::uniform_int_distribution<> distribution(7200, 10800);
+            std::uniform_int_distribution<> distribution(300, 450); //7200, 10800
             recharging_time = distribution(gen);
             std::lock_guard<std::mutex> guard(count_mutex);
             id = instance_count;
@@ -36,7 +34,7 @@ class Drone {
             }else if(move == 'd'){
                 this->moveDown();
             }else{
-                printf("A move in the path is undefined...");
+                printf("The char %c in the path is undefined...", move);
             }
         } 
 
@@ -80,6 +78,14 @@ class Drone {
             }
         }
 
+        void fillRechargingTime(){
+            recharging_time = MAX_RECHARGE_TIME;
+        }
+
+        int getRecharginTime(){
+            return this->recharging_time;
+        }
+
         int getMovesLeft(){
             return this->moves_left;
         }
@@ -96,13 +102,10 @@ class Drone {
             return this->id;
         }
 
-        void chargeDrone(){
-            float temp = (float)moves_left/MAX_FLIGHT_MOVES;
-            float missing_charge = 1-temp;
-            int time_needed = missing_charge * recharging_time * 1000;
-            std::this_thread::sleep_for(std::chrono::milliseconds(time_needed));
-            recharging_time = MAX_FLIGHT_MOVES;
-        }
+    // Vector of ready drones
+    static std::vector<Drone> readyOnes;
+    // Mutex to manage readyOnes
+    static std::mutex ready_mutex;
 
     private:
         int id; // Unique id
