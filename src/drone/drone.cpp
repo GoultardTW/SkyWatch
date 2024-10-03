@@ -21,7 +21,7 @@ void add_to_ready(Drone drone) {
     // Lock Mutex
     std::lock_guard<std::mutex> guard(Drone::ready_mutex);
 
-        // Secure access to the vector
+    // Secure access to the vector
     Drone::readyOnes.emplace_back(drone);
     printf("Il drone #%d e' messo nei ready\n",Drone::readyOnes.back().getId());
 
@@ -33,7 +33,7 @@ void chargeDrone(Drone drone){
     float missing_charge = 1-temp;
     int time_needed = missing_charge * drone.getRecharginTime() * 1000;
     std::this_thread::sleep_for(std::chrono::milliseconds(time_needed));
-    drone.fillRechargingTime();
+    drone.fillMovesLeft();
     add_to_ready(drone);
 }
 
@@ -93,7 +93,7 @@ void initDroneX(){
                 i--;
             }
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
 

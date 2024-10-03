@@ -12,15 +12,15 @@
 class Drone {
 
     public:
-        // Constructor (id)
+        // Constructor ()
         Drone() : id(0), x(150), y(150), moves_left(MAX_FLIGHT_MOVES){
             std::random_device rd;
             std::mt19937 gen(rd());
-            std::uniform_int_distribution<> distribution(600, 900); //7200, 10800
+            std::uniform_int_distribution<> distribution(300, 450); //7200, 10800
             recharging_time = distribution(gen);
             std::lock_guard<std::mutex> guard(count_mutex);
             id = instance_count;
-            ++instance_count;
+            instance_count++;
         }
 
         // It executes a move
@@ -78,8 +78,8 @@ class Drone {
             }
         }
 
-        void fillRechargingTime(){
-            recharging_time = MAX_RECHARGE_TIME;
+        void fillMovesLeft(){
+            moves_left = MAX_FLIGHT_MOVES;
         }
 
         int getRecharginTime(){
@@ -111,7 +111,7 @@ class Drone {
         int id; // Unique id
         int x; // Longitude
         int y; // Latitude
-        int moves_left; // Seconds of life remaining
+        int moves_left; // Remaining moves
         int recharging_time; // Seconds for a complete recharge
         // Global counter of drones
         static int instance_count;
