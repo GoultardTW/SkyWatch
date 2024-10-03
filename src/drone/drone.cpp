@@ -83,7 +83,7 @@ void initDroneX(){
             if(ind[i]==124){
                 drones.emplace_back(getDrone());
                 ind.emplace_back(0);
-                temp = drones.size();
+                temp = drones.size()-1;
             }
             if(ind[i]>=msg.length()){
                 std::thread chargingThread(chargeDrone, drones[i]);
@@ -93,7 +93,7 @@ void initDroneX(){
                 i--;
             }
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
 }
 
