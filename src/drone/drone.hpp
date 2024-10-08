@@ -3,6 +3,7 @@
 #define MIN_RECHARGE_TIME 120 // Min minutes for recharging
 #define MAX_RECHARGE_TIME 180 // Max minutes for recharging
 #define DIMENSION 300 // The area is 300x300 blocks
+#define TIME 10800 // Seconds for the execution to stop
 
 #include <stdio.h>
 #include <random>
@@ -21,6 +22,11 @@ class Drone {
             std::lock_guard<std::mutex> guard(count_mutex);
             id = instance_count;
             instance_count++;
+        }
+
+        // Static method to get the number of instances of the class
+        static int getInstanceCount(){
+            return instance_count;
         }
 
         // It executes a move
@@ -78,26 +84,32 @@ class Drone {
             }
         }
 
+        // Sets moves_left to maximum
         void fillMovesLeft(){
             moves_left = MAX_FLIGHT_MOVES;
         }
 
+        // Gets recharging time from a drone
         int getRecharginTime(){
             return this->recharging_time;
         }
 
+        // Gets the moves left from a drone
         int getMovesLeft(){
             return this->moves_left;
         }
 
+        // Gets the X coordinate from a drone
         int getX(){
             return this->x;
         }
 
+        // Gets the Y coordinate from a drone
         int getY(){
             return this->y;
         }
 
+        // Gets the Id from a drone
         int getId(){
             return this->id;
         }

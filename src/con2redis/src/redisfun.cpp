@@ -3,6 +3,7 @@
 #include <hiredis/hiredis.h>
 #include <string>
 #include <iostream>
+#include <vector>
 
 void print_reply_types()
 {
@@ -94,4 +95,35 @@ long deleteStream(redisContext *context, const std::string &stream) {
     long result = reply->integer;
     freeReplyObject(reply);
     return result;
+}
+
+long getStreamLen(redisContext *context, const std::string &stream) {
+    // Get the info
+    auto *reply = (redisReply *) redisCommand(context, "XINFO STREAM %s", stream.c_str());
+    if (reply == nullptr) {
+        std::cerr << "printInfoStream: Error: " << context->errstr << std::endl;
+        freeReplyObject(reply);
+        return -1;
+    }
+    if (reply->type == REDIS_REPLY_ERROR) {
+        std::cerr << "printInfoStream: Error: " << reply->str << std::endl;
+        freeReplyObject(reply);
+        return -1;
+    }
+
+    long value = reply->element[1]->integer;
+    freeReplyObject(reply);
+    return value;
+}
+
+std::vector<std::string> splitMessage(std::string report){
+    std::vector<std::string> res;
+    int j=0;
+    for(int i=1; i<report.length(); i++){
+        if(report[i]=='/'){
+            res.emplace_back(report.substr(j,i-j));
+            j=i+1;
+        }
+    }
+    return res;
 }

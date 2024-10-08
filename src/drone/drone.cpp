@@ -1,12 +1,15 @@
 #include <stdlib.h>
 #include <math.h>
 #include <mutex>
+#include <string>
 #include <thread>
 #include <chrono>
 
 #include "../con2redis/src/redisfun.cpp"
 #include "../con2redis/src/readreply.cpp"
 #include "drone.hpp"
+
+bool stopflag = false;
 
 // Number of instaces of Drone
 int Drone::instance_count = 0;
@@ -23,11 +26,11 @@ void add_to_ready(Drone drone) {
 
     // Secure access to the vector
     Drone::readyOnes.emplace_back(drone);
-    printf("Il drone #%d e' messo nei ready\n",Drone::readyOnes.back().getId());
-
+    printf("The drone #%d is ready\n",Drone::readyOnes.back().getId());
     // Lock released automatically
 }
 
+// Sets a drone in a charging state
 void chargeDrone(Drone drone){
     float temp = (float)drone.getMovesLeft()/MAX_FLIGHT_MOVES;
     float missing_charge = 1-temp;
@@ -37,31 +40,35 @@ void chargeDrone(Drone drone){
     add_to_ready(drone);
 }
 
+// Returns a new Drone if there isn't a ready one
 Drone getDrone(){
     // Lock Mutex
     std::lock_guard<std::mutex> guard(Drone::ready_mutex);
 
     if(!Drone::readyOnes.empty()){
         Drone res = Drone::readyOnes.back();
-        printf("Il drone #%d e' appena stato pescato\n", res.getId());
+        printf("The drone #%d has just been fetched\n", res.getId());
         Drone::readyOnes.pop_back();
         return res;
     }else{
         Drone newdrone;
-        printf("Il drone #%d e' appena stato creato\n", newdrone.getId());
+        printf("The drone #%d has just been created\n", newdrone.getId());
         return newdrone;
     }
     
 }
 
-// It manages one path
+// It manages the coverage of one path
 void initDroneX(){
 
+    // Creates the first drone of the path
     std::vector<Drone> drones;
     std::vector<int> ind;
     ind.emplace_back(0);
     drones.emplace_back(getDrone());
     int id = drones.back().getId();
+
+    // Gets a path for the drone through Redis
     redisContext *c = connectToRedis("redis", 6379);
     std::string stream = "Commands"+std::to_string(id);
     std::string group = "Group"+std::to_string(id);
@@ -69,22 +76,34 @@ void initDroneX(){
     std::string msg = ReadGroupMsgVal(c, id, group.c_str(), stream.c_str());
     destroyGroup(c, stream, group);
     deleteStream(c, stream);
-    redisFree(c);
+    
+    // Waits for the others to be ready
     std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+
+    // Starts execution through the path
     int temp = -1;
-    while(true){
+    std::string report = "";
+    while(!stopflag){
+        report = "";
         for(int i=0; i<drones.size(); i++){
+            // Skip if the drone has just been created
             if(i==temp){
                 temp = -1;
                 continue;
             }
+            // It executes the move and produces the report
             drones[i].ExecuteMove(msg[ind[i]]);
             ind[i]+=1;
+            report = report + std::to_string(drones[i].getX())+"/"+std::to_string(drones[i].getY())+"/";
+
+            // A drone calls a new drone to cover it up
             if(ind[i]==124){
                 drones.emplace_back(getDrone());
                 ind.emplace_back(0);
                 temp = drones.size()-1;
             }
+
+            // If the drone reached the end of the path
             if(ind[i]>=msg.length()){
                 std::thread chargingThread(chargeDrone, drones[i]);
                 chargingThread.detach();
@@ -93,8 +112,26 @@ void initDroneX(){
                 i--;
             }
         }
+
+        // It sends the report to the Control Center
+        stream = "Reports" + std::to_string(id);
+        createGroup(c, stream, stream, true);
+        SendStreamMsg(c, stream.c_str(), report.c_str());
+
+        // It simulates the time to reach the next block
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
+
+    // Elimination of stream, group and redis context
+    destroyGroup(c, stream, stream);
+    deleteStream(c, stream);
+    redisFree(c);
+}
+
+// Thread to set stopflag to true
+void timer(){
+    std::this_thread::sleep_for(std::chrono::seconds(TIME));
+    stopflag = true;
 }
 
 

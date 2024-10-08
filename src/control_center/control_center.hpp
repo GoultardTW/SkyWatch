@@ -1,39 +1,55 @@
 #define SECONDS_PER_MOVE 2.4 // 2.4 seconds to move to a nearby block
 #define DIMENSION 300 // The area is 300x300 blocks
+#define TIME 10800 // Seconds before stopping
+
+#include <postgresql/libpq-fe.h>
+#include <string>
+#include <mutex>
+#include <vector>
+#include <chrono>
 
 #include "../con2db/pgsql.h"
 #include "../con2db/pgsql.cpp"
-#include <string>
-#include <mutex>
 
 // Definition of control center class
 class Control_Center {
     
     public:
-        // Constructor(id, dimension in blocks)
+        // Constructor()
         Control_Center(): dimension(DIMENSION), conn("postgres", "5432", "postgres", "postgres", "postgres"){
-            // The matrix is initialized with -1 for each block, which means 'empty'
+            // The matrix is initialized with now() for each block, which means 'not visited'
             for (int i = 0; i < DIMENSION; i++) {
+                grid.emplace_back(std::vector<std::chrono::time_point<std::chrono::system_clock>>());
                 for (int j = 0; j < DIMENSION; j++) {
-                    grid[i][j] = -1;
+                    grid[i].emplace_back(std::chrono::system_clock::now());
                 }
             }
+            // Gets ids of CC and Session from DB
+            ccId = std::stoi(getValueQuery(std::string("INSERT INTO controlCenter DEFAULT VALUES RETURNING id;"), 0, 0));
+            sessionId = std::stoi(getValueQuery(std::string("INSERT INTO session_ (id_cdc, start_) VALUES ("+std::to_string(ccId)+", NOW()) RETURNING id;"), 0, 0));
         }
 
-        // It places the drone on the grid
-        void place_drone(int drone_id, int x, int y) {
-            grid[x][y] = drone_id;
+        // It updates the clock of the point (x,y)
+        void updateGrid(int x, int y){
+            grid[x][y] = std::chrono::system_clock::now();
         }
 
-        // It removes the drone frome the grid
-        void remove_drone(int x, int y) {
-            grid[x][y] = -1;
+        // It returns the latest visit of the point (x,y)
+        std::chrono::time_point<std::chrono::system_clock> getTimeFromGrid(int x, int y){
+            return grid[x][y];
         }
-
+        
         // It allows to send a query that doesn't return any data
         void executeQuery(const std::string &query) {
             std::lock_guard<std::mutex> lock(query_mutex);
             conn.ExecSQLcmd(const_cast<char *>(query.c_str()));
+        }
+
+        // It returns the value of the query
+        std::string getValueQuery(const std::string &query, int row, int column){
+            PGresult* tuples = getTuples(query);
+            char* value = PQgetvalue(tuples, row, column);
+            return std::string(value);
         }
 
         // It allows to send a query that returns some data
@@ -43,12 +59,21 @@ class Control_Center {
             return res;
         }
 
+        // Returns the Id of the Session
+        int getSessionId(){
+            return sessionId;
+        }
+
+        // Returns the Id of the Control Center
+        int getCCId(){
+            return ccId;
+        }
+
     private:
         int dimension; // dimensionxdimension equals to the area
-        int grid[DIMENSION][DIMENSION];
+        int sessionId; // Id of the Session from DB
+        int ccId; // Id of the Control Center from DB
+        std::vector<std::vector<std::chrono::time_point<std::chrono::system_clock>>> grid; // Matrix containing timestamps for each point of the grid
         Con2DB conn;
         std::mutex query_mutex;
 };
-
-
-// Control center management functions

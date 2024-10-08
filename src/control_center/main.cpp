@@ -1,19 +1,22 @@
 #include <hiredis/hiredis.h>
-#include <iostream>
 #include <postgresql/libpq-fe.h>
 #include <stdlib.h>
 #include <string>
 #include <math.h>
 #include <unistd.h>
 #include <vector>
+#include <thread>
 
 #include "control_center.cpp"
-#include "control_center.hpp"
-#include "../con2redis/src/redisfun.cpp"
-#include "../con2redis/src/readreply.cpp"
-
 
 int main(int argc, char *argv[]) {
+
+    // Timer Thread
+    std::thread timerThread(timer);
+    timerThread.detach();
+
+    // Instantiation of Control_Center
+    Control_Center center;
 
     // Allocation of redis context
     redisContext *c = connectToRedis("redis", 6379);
@@ -21,14 +24,13 @@ int main(int argc, char *argv[]) {
 
     // Produce paths
     std::vector<std::string> paths;
-    findPaths(&paths);
+    findPaths(&paths, &center);
 
-    // Send number of drones to Drone
+    // Send number of paths to Drone
     int nDrones = paths.size();
-    printf("The number of paths is %d\n", nDrones);
     SendStreamMsg(c, "Commands", std::to_string(nDrones).c_str());
 
-    // Send a message for each drone
+    // Send a message containing a path for each drone
     for(int i=0; i<nDrones; i++){
         std::string message = paths[i];
         std::string stream = "Commands"+std::to_string(i);
@@ -36,24 +38,27 @@ int main(int argc, char *argv[]) {
         createGroup(c, stream, group, true);
         SendStreamMsg(c, stream.c_str(), message.c_str());
     }
+    
+    // Thread to read the report of drones
+    std::thread listenThread(listenDrones, &center, nDrones);
+    listenThread.detach();
 
-    redisFree(c);
-    return 0;
-
-    // Instantiation of Control_Center
-    Control_Center center;
-    // Insertion of the control center into the database
-    std::string query = "INSERT INTO controlCenter DEFAULT VALUES";
-    center.executeQuery(query);
-
-    // Insertion of drones into the database
-    std::cout << "Loading drones into the database...\n";
+    // At the end of the execution, Get the actual number of drones initialized
+    std::string finalS = "Drones";
+    createGroup(c, finalS, finalS, true);
+    std::string res = ReadGroupMsgVal(c, 0, finalS.c_str(), finalS.c_str());
+    destroyGroup(c, finalS.c_str(), finalS.c_str());
+    deleteStream(c, finalS.c_str());
+    nDrones = std::stoi(res);
     for (int i=0; i<nDrones; i++) {
-        query = "INSERT INTO drone (controlCenter, batteryPercentage, status) VALUES (1, 100, 'READY')";
+        std::string query = "INSERT INTO drone (id_cdc, battery) VALUES ("+std::to_string(center.getCCId())+", 100)";
         center.executeQuery(query);
-        query = std::string("SELECT * FROM drone WHERE id = ") + std::to_string(i+1);
-        PGresult *res = center.getTuples(query);
-        std::cout << PQgetvalue(res, 0, 0);
+    }
+
+    // MONITOR NUM DRONES
+    if(nDrones>9000){
+        std::string query = "INSERT INTO monitor_failure (session_, failure, message_, date_time) VALUES ("+ std::to_string(center.getSessionId())+", 'NUM_DRONES', 'The number of drones is over 9000: " + std::to_string(nDrones) + "', NOW());";
+        center.executeQuery(query);
     }
 
     redisFree(c);

@@ -1,14 +1,12 @@
 DO $$
     BEGIN
-        -- Verifica se il tipo ENUM 'status' esiste già
         IF NOT EXISTS (
             SELECT 1
             FROM pg_type
-            WHERE typname = 'status'
+            WHERE typname = 'requirement'
               AND typtype = 'e'
         ) THEN
-            -- Crea il tipo ENUM 'status' solo se non esiste già
-            CREATE TYPE status AS ENUM ('READY', 'CHARGING', 'WORKING');
+            CREATE TYPE requirement AS ENUM ('MISSING_REPORT', 'PATH_CALCULATION', 'AREA_COVERAGE', 'NUM_DRONES', 'CC_OVERLOAD');
         END IF;
 END $$;
 
@@ -18,16 +16,24 @@ CREATE TABLE IF NOT EXISTS controlCenter (
 
 CREATE TABLE IF NOT EXISTS drone (
     id SERIAL PRIMARY KEY,
-    controlCenter int,
-    batteryPercentage int CHECK (batteryPercentage >= 0 AND batteryPercentage <= 100),
-    status status,
-    FOREIGN KEY (controlCenter) REFERENCES controlCenter (id)
+    id_cdc INT,
+    battery int CHECK (battery >= 0 AND battery <= 100),
+    FOREIGN KEY (id_cdc) REFERENCES controlCenter (id)
 );
 
-CREATE TABLE IF NOT EXISTS session (
+CREATE TABLE IF NOT EXISTS session_ (
    id SERIAL PRIMARY KEY,
-   controlCenter int,
-   start_time TIMESTAMP NOT NULL,
-   end_time   TIMESTAMP,
-   FOREIGN KEY (controlCenter) REFERENCES controlCenter (id)
+   id_cdc INT,
+   start_ TIMESTAMP NOT NULL,
+   end_   TIMESTAMP,
+   FOREIGN KEY (id_cdc) REFERENCES controlCenter (id)
 );
+
+CREATE TABLE IF NOT EXISTS monitor_failure (
+    id SERIAL PRIMARY KEY,
+    session_ INT,
+    failure requirement,
+    message_ TEXT,
+    date_time TIMESTAMP NOT NULL,
+    FOREIGN KEY (session_) REFERENCES session_ (id)
+)
