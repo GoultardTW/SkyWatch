@@ -38,17 +38,19 @@ int main(int argc, char *argv[]) {
         createGroup(c, stream, group, true);
         SendStreamMsg(c, stream.c_str(), message.c_str());
     }
-    
     // Thread to read the report of drones
-    std::thread listenThread(listenDrones, &center, nDrones);
+    std::thread listenThread(listenDronesX, &center, nDrones);
     listenThread.detach();
 
+    while(!stopflag){
+    }
+
+    std::string finalS = "NumberDrones";
     // At the end of the execution, Get the actual number of drones initialized
-    std::string finalS = "Drones";
     createGroup(c, finalS, finalS, true);
     std::string res = ReadGroupMsgVal(c, 0, finalS.c_str(), finalS.c_str());
-    destroyGroup(c, finalS.c_str(), finalS.c_str());
-    deleteStream(c, finalS.c_str());
+    destroyGroup(c, finalS, finalS);
+    deleteStream(c, finalS);
     nDrones = std::stoi(res);
     for (int i=0; i<nDrones; i++) {
         std::string query = "INSERT INTO drone (id_cdc, battery) VALUES ("+std::to_string(center.getCCId())+", 100)";

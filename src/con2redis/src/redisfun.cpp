@@ -53,16 +53,13 @@ redisContext *connectToRedis(const char *hostname, int port) {
     return c;
 }
 
-std::string createGroup(redisContext *context, const std::string &stream, const std::string &group, bool mkstream = true) {
+void createGroup(redisContext *context, const std::string &stream, const std::string &group, bool mkstream = true) {
     // Create a group
     auto *reply = (redisReply *) redisCommand(context, "XGROUP CREATE %s %s $ MKSTREAM", stream.c_str(), group.c_str());
     if (reply == nullptr) {
         std::cerr << "createGroup: Error: " << context->errstr << std::endl;
-        return "";
+        return;
     }
-    std::string result = reply->str;
-    freeReplyObject(reply);
-    return result;
 }
 
 long destroyGroup(redisContext *context, const std::string &stream, const std::string &group) {

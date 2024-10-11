@@ -26,7 +26,7 @@ void add_to_ready(Drone drone) {
 
     // Secure access to the vector
     Drone::readyOnes.emplace_back(drone);
-    printf("The drone #%d is ready\n",Drone::readyOnes.back().getId());
+    //printf("The drone #%d is ready\n",Drone::readyOnes.back().getId());
     // Lock released automatically
 }
 
@@ -47,12 +47,12 @@ Drone getDrone(){
 
     if(!Drone::readyOnes.empty()){
         Drone res = Drone::readyOnes.back();
-        printf("The drone #%d has just been fetched\n", res.getId());
+        //printf("The drone #%d has just been fetched\n", res.getId());
         Drone::readyOnes.pop_back();
         return res;
     }else{
         Drone newdrone;
-        printf("The drone #%d has just been created\n", newdrone.getId());
+        //printf("The drone #%d has just been created\n", newdrone.getId());
         return newdrone;
     }
     
@@ -119,7 +119,7 @@ void initDroneX(){
         SendStreamMsg(c, stream.c_str(), report.c_str());
 
         // It simulates the time to reach the next block
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
     }
 
     // Elimination of stream, group and redis context

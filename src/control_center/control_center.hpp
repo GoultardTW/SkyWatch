@@ -41,7 +41,7 @@ class Control_Center {
         
         // It allows to send a query that doesn't return any data
         void executeQuery(const std::string &query) {
-            std::lock_guard<std::mutex> lock(query_mutex);
+            std::lock_guard<std::mutex> guard(query_mutex);
             conn.ExecSQLcmd(const_cast<char *>(query.c_str()));
         }
 
@@ -54,7 +54,7 @@ class Control_Center {
 
         // It allows to send a query that returns some data
         PGresult* getTuples(const std::string &query) {
-            std::lock_guard<std::mutex> lock(query_mutex);
+            std::lock_guard<std::mutex> guard(query_mutex);
             PGresult *res = conn.ExecSQLtuples(const_cast<char *>(query.c_str()));
             return res;
         }
@@ -75,5 +75,5 @@ class Control_Center {
         int ccId; // Id of the Control Center from DB
         std::vector<std::vector<std::chrono::time_point<std::chrono::system_clock>>> grid; // Matrix containing timestamps for each point of the grid
         Con2DB conn;
-        std::mutex query_mutex;
+        std::mutex query_mutex; // Mutex to avoid query at the same time
 };

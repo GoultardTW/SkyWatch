@@ -9,7 +9,7 @@
 #include "../con2redis/src/readreply.cpp"
 #include "control_center.hpp"
 
-bool stopflag = false; // Flag to stop to receive reports
+bool stopflag = false; // Flag to stop to receive reports 
 
 // Returns a path from (x, y) -> (nx, ny)
 std::string goTo(int x, int y, int nx, int ny){
@@ -97,59 +97,73 @@ void findPaths(std::vector<std::string>* paths, Control_Center* cc) {
 
     if (x > 0) {
         path = goTo(150, 150, x, y);
-        step = x;
-        path = path + goToGridX(&x, &y, step);
+        path = path + goTo(x, y, 0, 299);
+        path = path + goTo(0, 299, 150, 150);
         paths->emplace_back(path);
     }
     // MONITOR PATH_CALCULATION
-    if(paths->size()<226){
+    if(paths->size()==0){
         std::string query = "INSERT INTO monitor_failure (session_, failure, message_, date_time) VALUES ("+ std::to_string(cc->getSessionId())+", 'PATH_CALCULATION', 'Path vector has not been calculated correctly...', NOW());";
         cc->executeQuery(query);
     }
 }
 
-// Communication with Drones
-void listenDrones(Control_Center* cc, int nDrones){
+// Thread to execute a query
+void doQuery(Control_Center* c, std::string query){
+    c->executeQuery(query);
+}
+
+//Communication with Drones
+void listenDronesX(Control_Center* cc, int nDrones){
     // Initiation of connection to Redis
     std::string stream = "Reports";
     redisContext *c = connectToRedis("redis", 6379);
+    int i=0;
 
     while(!stopflag){
+        if(i == nDrones) i = 0;
+
         // Reads report from Drones
-        for(int i=0; i<nDrones; i++){
-            createGroup(c, stream+std::to_string(i), stream+std::to_string(i), true);
-            long length = getStreamLen(c, stream+std::to_string(i));
-            // MONITOR CC_OVERLOAD
-            if (length > 4000) { 
+        std::string actualStream = stream+std::to_string(i);
+        createGroup(c, actualStream, actualStream, true);
+        long length = getStreamLen(c, actualStream);
+
+        // MONITOR CC_OVERLOAD
+        if (length > 4000) { 
                 std::string query = "INSERT INTO monitor_failure (session_, failure, message_, date_time) VALUES ("+ std::to_string(cc->getSessionId())+", 'CC_OVERLOAD', 'cc Stream length is too long: " + std::to_string(length) + "', NOW());";
-                //cc->executeQuery(query);
-            }
-            std::string report = ReadGroupMsgVal(c, i, (stream+std::to_string(i)).c_str(), (stream+std::to_string(i)).c_str());
-            std::vector<std::string> coordinates = splitMessage(report);
-            // MONITOR MISSING_REPORT
-            if(coordinates.size() == 0 || coordinates.size()%2 == 1){
-                std::string query = "INSERT INTO monitor_failure (session_, failure, message_, date_time) VALUES ("+ std::to_string(cc->getSessionId())+", 'MISSING_REPORT', 'Empty or not valid Report', NOW());";
-                //cc->executeQuery(query);
-            }
-            
-            // Updates timestamps of the grid
-            int x, y;
-            for(int i=0; i<coordinates.size(); i+=2){
-                x = std::stoi(coordinates[i]);
-                y = std::stoi(coordinates[i+1]);
-                auto diff = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-cc->getTimeFromGrid(x, y));
-                // MONITOR AREA_COVERAGE
-                if(diff.count()>30){
-                    printf("Ci ha messo %d\n", (int)diff.count());
-                    std::string query ="INSERT INTO monitor_failure (session_, failure, message_, date_time) VALUES ("+ std::to_string(cc->getSessionId())+", 'AREA_COVERAGE', 'The point ("+std::to_string(x)+", "+std::to_string(y)+") has not been covered in 5 minutes', NOW());";
-                    //cc->executeQuery(query);
-                    std::string out = "The coverage in the point: ("+std::to_string(x)+", "+std::to_string(y)+") failed";
-                    printf("%s\n", out.c_str());
-                }
-                cc->updateGrid(x, y);
-            }
+                std::thread newQuery(doQuery, cc, query);
+                newQuery.detach();
         }
+
+        // Read the report from the i-th drone
+        std::string report = ReadGroupMsgVal(c, i, actualStream.c_str(), actualStream.c_str(), "20000");
+        if(report == "Null") continue;
+        std::vector<std::string> coordinates = splitMessage(report);
+
+        // MONITOR MISSING_REPORT
+        if(coordinates.size() == 0 || coordinates.size()%2 == 1){
+            std::string query = "INSERT INTO monitor_failure (session_, failure, message_, date_time) VALUES ("+ std::to_string(cc->getSessionId())+", 'MISSING_REPORT', 'Empty or not valid Report', NOW());";
+            std::thread newQuery(doQuery, cc, query);
+            newQuery.detach();
+        }
+
+        // Updates timestamps of the grid
+        int x, y;
+        for(int i=0; i<coordinates.size(); i+=2){
+            x = std::stoi(coordinates[i]);
+            y = std::stoi(coordinates[i+1]);
+            auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now()-cc->getTimeFromGrid(x, y));
+            // MONITOR AREA_COVERAGE
+            if(diff.count()>39000 ){
+                std::string query ="INSERT INTO monitor_failure (session_, failure, message_, date_time) VALUES ("+ std::to_string(cc->getSessionId())+", 'AREA_COVERAGE', 'The point ("+std::to_string(x)+", "+std::to_string(y)+") has not been covered in 5 minutes', NOW());";
+                std::thread newQuery(doQuery, cc, query);
+                newQuery.detach();
+            }
+            cc->updateGrid(x, y);
+        }
+        i++;
     }
+
     // Destroy all groups and streams at the end
     for(int i=0; i<nDrones; i++){
         destroyGroup(c, stream+std::to_string(i), stream+std::to_string(i));
@@ -159,14 +173,16 @@ void listenDrones(Control_Center* cc, int nDrones){
 
 // It checks if every point in the grid is visited (Not actually used, just for debug)
 bool finalCheck(Control_Center* c){
+    bool check = false;
     for(int i=0; i<300; i++){
         for(int j=0; j<300; j++){
             if(c->getTimeFromGrid(i, j)==std::chrono::time_point<std::chrono::system_clock>()){
-                return true;
+                printf("(%d,%d) Not checked\n", i, j);
+                check = true;
             }
         }
     }
-    return false;
+    return check;
 }
 
 // Timer thread to set the stopflag true

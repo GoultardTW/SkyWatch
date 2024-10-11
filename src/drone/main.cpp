@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Send number of drones actually created to Control Center
-    std::string finalS = "Drones";
+    std::string finalS = "NumberDrones";
     createGroup(c, finalS, finalS, true);
     SendStreamMsg(c, finalS.c_str(), std::to_string(Drone::getInstanceCount()).c_str());
     redisFree(c);

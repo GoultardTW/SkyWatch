@@ -1,6 +1,7 @@
 #include "con2redis.h"
 #include <cstring>
 #include <hiredis/hiredis.h>
+#include <hiredis/read.h>
 #include <string>
 
 // It returns the number of Streams
@@ -44,16 +45,18 @@ std::string ReadStreamMsgVal(redisReply *r, long unsigned int streamnum, int msg
 // It deletes a message
 void DelMsg(redisContext* c, const char* stream, const char* messageId){
   redisReply* reply = (redisReply*)redisCommand(c, "XDEL %s %s", stream, messageId);
-  if (reply != NULL) {
-        //printf("Message deleted from stream: %s\n", reply->str);
+  if (reply != nullptr || reply != NULL || reply->type != REDIS_REPLY_ERROR) {
         freeReplyObject(reply);
   }
 }
 
 // Returns the message read from a consumer
-std::string ReadGroupMsgVal(redisContext* c, int id, const char* group, const char* stream){
+std::string ReadGroupMsgVal(redisContext* c, int id, const char* group, const char* stream, const char* block = "0"){
   std::string consumerName = "Drone_" + std::to_string(id);
-  redisReply *rep = (redisReply *)redisCommand(c, "XREADGROUP GROUP %s %s NOACK COUNT 1 BLOCK 0 STREAMS %s >", group, consumerName.c_str(), stream);
+  redisReply *rep = (redisReply *)redisCommand(c, "XREADGROUP GROUP %s %s NOACK COUNT 1 BLOCK %s STREAMS %s >", group, consumerName.c_str(), block, stream);
+  if (rep == nullptr || rep == NULL || rep->type == REDIS_REPLY_ERROR) {
+        return "Null";
+  }
   std::string res = ReadStreamMsgVal(rep, 0, 0, 1);
   std::string messageId = rep->element[0]->element[1]->element[0]->element[0]->str;
   DelMsg(c, stream, messageId.c_str());
