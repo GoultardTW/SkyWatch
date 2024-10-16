@@ -102,7 +102,8 @@ void findPaths(std::vector<std::string>* paths, Control_Center* cc) {
         paths->emplace_back(path);
     }
     // MONITOR PATH_CALCULATION
-    if(paths->size()==0){
+    if(paths->size()<226){
+        printf("Calculation of paths failed: An insert monitor_failure query has been sent to the Database.\n");
         std::string query = "INSERT INTO monitor_failure (session_, failure, message_, date_time) VALUES ("+ std::to_string(cc->getSessionId())+", 'PATH_CALCULATION', 'Path vector has not been calculated correctly...', NOW());";
         cc->executeQuery(query);
     }
@@ -111,6 +112,7 @@ void findPaths(std::vector<std::string>* paths, Control_Center* cc) {
 // Thread to execute a query
 void doQuery(Control_Center* c, std::string query){
     c->executeQuery(query);
+    //printf("Query executed: %s\n", query.c_str());
 }
 
 //Communication with Drones
@@ -130,6 +132,7 @@ void listenDronesX(Control_Center* cc, int nDrones){
 
         // MONITOR CC_OVERLOAD
         if (length > 4000) { 
+                printf("Stream length is too long: An insert monitor_failure query has been sent to the Database.\n");
                 std::string query = "INSERT INTO monitor_failure (session_, failure, message_, date_time) VALUES ("+ std::to_string(cc->getSessionId())+", 'CC_OVERLOAD', 'cc Stream length is too long: " + std::to_string(length) + "', NOW());";
                 std::thread newQuery(doQuery, cc, query);
                 newQuery.detach();
@@ -142,6 +145,7 @@ void listenDronesX(Control_Center* cc, int nDrones){
 
         // MONITOR MISSING_REPORT
         if(coordinates.size() == 0 || coordinates.size()%2 == 1){
+            printf("Report empty or not valid: An insert monitor_failure query has been sent to the Database.\n");
             std::string query = "INSERT INTO monitor_failure (session_, failure, message_, date_time) VALUES ("+ std::to_string(cc->getSessionId())+", 'MISSING_REPORT', 'Empty or not valid Report', NOW());";
             std::thread newQuery(doQuery, cc, query);
             newQuery.detach();
@@ -154,7 +158,8 @@ void listenDronesX(Control_Center* cc, int nDrones){
             y = std::stoi(coordinates[i+1]);
             auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now()-cc->getTimeFromGrid(x, y));
             // MONITOR AREA_COVERAGE
-            if(diff.count()>39000 ){
+            if(diff.count()>3002000){
+                //printf("The point (%d, %d) has not been covered in 5 minutes: An insert monitor_failure query has been sent to the Database.\n", x, y);
                 std::string query ="INSERT INTO monitor_failure (session_, failure, message_, date_time) VALUES ("+ std::to_string(cc->getSessionId())+", 'AREA_COVERAGE', 'The point ("+std::to_string(x)+", "+std::to_string(y)+") has not been covered in 5 minutes', NOW());";
                 std::thread newQuery(doQuery, cc, query);
                 newQuery.detach();
@@ -190,3 +195,15 @@ void timer(){
     std::this_thread::sleep_for(std::chrono::seconds(TIME));
     stopflag = true;
 }
+
+// Thread for periodic reports about Control Center execution
+void periodicReport(Control_Center* cc){
+    int t = 1;
+    while(!stopflag){
+        std::this_thread::sleep_for(std::chrono::milliseconds(60000)); // 60 seconds normally
+        printf("Control Center is now listening: %f%% coverage, %d minutes.\n", cc->computePercentage(), t);
+        t+=1;
+    }
+}
+
+

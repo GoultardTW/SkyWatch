@@ -72,7 +72,7 @@ void SendStreamMsgN(redisContext* c, const char* stream, char** value, int num_f
   }
   redisReply *reply = (redisReply *)redisCommand(c, xadd.c_str());
   if (reply != NULL) {
-        printf("Message added to stream: %s\n", reply->str);
+        //printf("Message added to stream: %s\n", reply->str);
         freeReplyObject(reply);
   }
 }

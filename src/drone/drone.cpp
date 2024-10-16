@@ -22,11 +22,11 @@ std::mutex Drone::ready_mutex;
 // Adds a drone to the ready ones
 void add_to_ready(Drone drone) {
     // Lock Mutex
+    printf("Drone #%d: Ready to work.\n", drone.getId());
     std::lock_guard<std::mutex> guard(Drone::ready_mutex);
 
     // Secure access to the vector
     Drone::readyOnes.emplace_back(drone);
-    //printf("The drone #%d is ready\n",Drone::readyOnes.back().getId());
     // Lock released automatically
 }
 
@@ -92,7 +92,11 @@ void initDroneX(){
                 continue;
             }
             // It executes the move and produces the report
-            drones[i].ExecuteMove(msg[ind[i]]);
+            int ox = drones[i].getX(); // Get x at time t
+            int oy = drones[i].getY(); // Get y at time t
+            drones[i].ExecuteMove(msg[ind[i]]); // Executes move
+            // Print the movement at time t+1
+            //printf("Drone #%d: (%d, %d) -> (%d, %d)\n", drones[i].getId(), ox, oy, drones[i].getX(), drones[i].getY());
             ind[i]+=1;
             report = report + std::to_string(drones[i].getX())+"/"+std::to_string(drones[i].getY())+"/";
 
@@ -105,6 +109,7 @@ void initDroneX(){
 
             // If the drone reached the end of the path
             if(ind[i]>=msg.length()){
+                printf("Drone #%d: Back to CC for recharging.\n", drones[i].getId());
                 std::thread chargingThread(chargeDrone, drones[i]);
                 chargingThread.detach();
                 drones.erase(drones.begin() + i);
@@ -119,7 +124,7 @@ void initDroneX(){
         SendStreamMsg(c, stream.c_str(), report.c_str());
 
         // It simulates the time to reach the next block
-        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        std::this_thread::sleep_for(std::chrono::milliseconds(2400));
     }
 
     // Elimination of stream, group and redis context

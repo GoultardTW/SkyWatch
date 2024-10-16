@@ -1,6 +1,6 @@
 #define SECONDS_PER_MOVE 2.4 // 2.4 seconds to move to a nearby block
 #define DIMENSION 300 // The area is 300x300 blocks
-#define TIME 10800 // Seconds before stopping
+#define TIME 86400 //10800 3h, 86400 24h. Seconds before stopping
 
 #include <postgresql/libpq-fe.h>
 #include <string>
@@ -18,10 +18,11 @@ class Control_Center {
         // Constructor()
         Control_Center(): dimension(DIMENSION), conn("postgres", "5432", "postgres", "postgres", "postgres"){
             // The matrix is initialized with now() for each block, which means 'not visited'
+            std::chrono::time_point<std::chrono::system_clock> t = std::chrono::time_point<std::chrono::system_clock>();
             for (int i = 0; i < DIMENSION; i++) {
                 grid.emplace_back(std::vector<std::chrono::time_point<std::chrono::system_clock>>());
                 for (int j = 0; j < DIMENSION; j++) {
-                    grid[i].emplace_back(std::chrono::system_clock::now());
+                    grid[i].emplace_back(t);
                 }
             }
             // Gets ids of CC and Session from DB
@@ -67,6 +68,21 @@ class Control_Center {
         // Returns the Id of the Control Center
         int getCCId(){
             return ccId;
+        }
+
+        float computePercentage(){
+            int c = 0;
+            std::chrono::time_point<std::chrono::system_clock> t = std::chrono::system_clock::now();
+            for(int i=0; i<dimension; i++){
+                for(int j=0; j<dimension; j++){
+                    auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(t-getTimeFromGrid(i, j));
+                    if(diff.count()<=302000){
+                        c++;
+                    }
+                }
+            }
+            float p = (float)c/(dimension*dimension);
+            return p*100;
         }
 
     private:

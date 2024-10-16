@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <hiredis/hiredis.h>
 #include <postgresql/libpq-fe.h>
 #include <stdlib.h>
@@ -11,9 +12,12 @@
 
 int main(int argc, char *argv[]) {
 
+    setvbuf(stdout, NULL, _IONBF, 0);
+
     // Timer Thread
     std::thread timerThread(timer);
     timerThread.detach();
+    printf("Control Center started\n");
 
     // Instantiation of Control_Center
     Control_Center center;
@@ -21,6 +25,7 @@ int main(int argc, char *argv[]) {
     // Allocation of redis context
     redisContext *c = connectToRedis("redis", 6379);
     createGroup(c, "Commands", "Group", true);
+    printf("Connected to Redis successfully\n");
 
     // Produce paths
     std::vector<std::string> paths;
@@ -28,6 +33,7 @@ int main(int argc, char *argv[]) {
 
     // Send number of paths to Drone
     int nDrones = paths.size();
+    printf("Paths generated: %d\n", nDrones);
     SendStreamMsg(c, "Commands", std::to_string(nDrones).c_str());
 
     // Send a message containing a path for each drone
@@ -38,12 +44,19 @@ int main(int argc, char *argv[]) {
         createGroup(c, stream, group, true);
         SendStreamMsg(c, stream.c_str(), message.c_str());
     }
+    printf("Paths sent to drones\n");
+
     // Thread to read the report of drones
     std::thread listenThread(listenDronesX, &center, nDrones);
     listenThread.detach();
+    // Report thread
+    std::thread reportThread(periodicReport, &center);
+    reportThread.detach();
+    printf("Control Center is now listening to drones\n");
 
     while(!stopflag){
     }
+    printf("Starting operations to conclude execution\n");
 
     std::string finalS = "NumberDrones";
     // At the end of the execution, Get the actual number of drones initialized
@@ -56,6 +69,7 @@ int main(int argc, char *argv[]) {
         std::string query = "INSERT INTO drone (id_cdc, battery) VALUES ("+std::to_string(center.getCCId())+", 100)";
         center.executeQuery(query);
     }
+    printf("Number of drones used: %d\n", nDrones);
 
     // MONITOR NUM DRONES
     if(nDrones>9000){
@@ -64,5 +78,6 @@ int main(int argc, char *argv[]) {
     }
 
     redisFree(c);
+    printf("Redis connection closed\n");
     return 0;
 }

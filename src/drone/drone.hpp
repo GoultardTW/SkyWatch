@@ -3,7 +3,7 @@
 #define MIN_RECHARGE_TIME 120 // Min minutes for recharging
 #define MAX_RECHARGE_TIME 180 // Max minutes for recharging
 #define DIMENSION 300 // The area is 300x300 blocks
-#define TIME 10800 // Seconds for the execution to stop
+#define TIME 86400 //10800 3h, 86400 24h. Seconds before stopping
 
 #include <stdio.h>
 #include <random>
@@ -17,7 +17,7 @@ class Drone {
         Drone() : id(0), x(150), y(150), moves_left(MAX_FLIGHT_MOVES){
             std::random_device rd;
             std::mt19937 gen(rd());
-            std::uniform_int_distribution<> distribution(900, 1350); //7200, 10800
+            std::uniform_int_distribution<> distribution(7200, 10800); //7200, 10800
             recharging_time = distribution(gen);
             std::lock_guard<std::mutex> guard(count_mutex);
             id = instance_count;
